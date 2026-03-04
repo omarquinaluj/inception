@@ -43,3 +43,6 @@ volumes:
 networks:
   inception:
     driver: bridge
+
+ports:
+  - "443:443"

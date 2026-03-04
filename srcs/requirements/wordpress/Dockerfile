@@ -9,12 +9,12 @@ RUN apt-get update && apt-get upgrade -y && \
     wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Instalar WP-CLI
-RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
-    chmod +x wp-cli.phar && \
-    mv wp-cli.phar /usr/local/bin/wp
+# Hacer que escuche por puerto 9000
+RUN sed -i 's|listen = .*|listen = 9000|' /etc/php/7.4/fpm/pool.d/www.conf
 
-# Crear directorio de WordPress
+# Crear carpeta runtime necesaria
+RUN mkdir -p /run/php
+
 RUN mkdir -p /var/www/html
 
 COPY conf/wp_setup.sh /wp_setup.sh

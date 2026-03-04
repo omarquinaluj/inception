@@ -15,6 +15,8 @@ RUN openssl req -x509 -nodes -days 365 \
     -subj "/C=ES/ST=Madrid/L=Madrid/O=42/OU=student/CN=owmarqui.42.fr"
 
 COPY conf/nginx.conf /etc/nginx/nginx.conf
+COPY ssl/server.crt /etc/ssl/server.crt
+COPY ssl/server.key /etc/ssl/server.key
 
 EXPOSE 443
 
