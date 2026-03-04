@@ -1,6 +1,11 @@
 #!/bin/bash
 
-service mariadb start
+mysqld_safe --datadir=/var/lib/mysql &
+
+# Esperar a que MariaDB esté lista
+until mysqladmin ping -h localhost --silent; do
+	sleep 1
+done
 
 mysql -u root << EOF
 CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
