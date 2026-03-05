@@ -1,22 +1,18 @@
 FROM debian:bullseye
 
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y nginx openssl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    nginx \
+    openssl
 
-# Crear carpeta SSL
 RUN mkdir -p /etc/nginx/ssl
 
-# Generar certificado autofirmado
 RUN openssl req -x509 -nodes -days 365 \
-    -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/nginx.key \
-    -out /etc/nginx/ssl/nginx.crt \
-    -subj "/C=ES/ST=Madrid/L=Madrid/O=42/OU=student/CN=owmarqui.42.fr"
+-newkey rsa:2048 \
+-keyout /etc/nginx/ssl/server.key \
+-out /etc/nginx/ssl/server.crt \
+-subj "/C=ES/ST=Madrid/L=Madrid/O=42/OU=42/CN=owmarqui.42.fr"
 
 COPY conf/nginx.conf /etc/nginx/nginx.conf
-COPY ssl/server.crt /etc/ssl/server.crt
-COPY ssl/server.key /etc/ssl/server.key
 
 EXPOSE 443
 

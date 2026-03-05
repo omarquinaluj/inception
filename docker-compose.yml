@@ -46,3 +46,19 @@ networks:
 
 ports:
   - "443:443"
+
+#bonus
+
+redis:
+  container_name: redis
+  build: ./srcs/requirements/bonus/redis
+  networks:
+    - inception
+
+adminer:
+  container_name: adminer
+  build: ./srcs/requirements/bonus/adminer
+  ports:
+    - "8080:8080"
+  networks:
+    - inception
