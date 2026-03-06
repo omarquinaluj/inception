@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
     php-mysql \
     wget
 
-RUN mkdir /var/www/html
+RUN mkdir -p /var/www/html
 
 RUN wget "http://www.adminer.org/latest.php" -O /var/www/html/index.php
 

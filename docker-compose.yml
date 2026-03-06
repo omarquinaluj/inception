@@ -1,5 +1,3 @@
-
-
 services:
 
   mariadb:
@@ -36,6 +34,20 @@ services:
     networks:
       - inception
 
+  redis:
+    container_name: redis
+    build: ./srcs/requirements/bonus/redis
+    networks:
+      - inception
+
+  adminer:
+    container_name: adminer
+    build: ./srcs/requirements/bonus/adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - inception
+
 volumes:
   mariadb_data:
   wordpress_data:
@@ -43,22 +55,3 @@ volumes:
 networks:
   inception:
     driver: bridge
-
-ports:
-  - "443:443"
-
-#bonus
-
-redis:
-  container_name: redis
-  build: ./srcs/requirements/bonus/redis
-  networks:
-    - inception
-
-adminer:
-  container_name: adminer
-  build: ./srcs/requirements/bonus/adminer
-  ports:
-    - "8080:8080"
-  networks:
-    - inception
