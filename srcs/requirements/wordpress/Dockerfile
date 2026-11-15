@@ -20,10 +20,6 @@ RUN mkdir -p /var/www/html
 COPY conf/wp_setup.sh /wp_setup.sh
 RUN chmod +x /wp_setup.sh
 
-# Copiar y ejecutar script FTP/SFTP
-COPY ../ftp/setup_ssh.sh /setup_ssh.sh
-RUN chmod +x /setup_ssh.sh && /setup_ssh.sh
-
 EXPOSE 9000
 
 ENTRYPOINT ["/wp_setup.sh"]
