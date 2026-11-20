@@ -6,7 +6,9 @@ This document explains how to set up, build, configure and maintain the Inceptio
 
 The infrastructure is built with Docker Compose and consists of independent containers connected through a dedicated Docker network.
 
-Each service has its own Dockerfile and is built from Debian.
+Each service has its own Dockerfile and is built from Debian Bookworm.
+
+The project is designed to comply with the requirements of the 42 Inception subject.
 
 ---
 
@@ -19,7 +21,7 @@ The project requires:
 - Docker Compose.
 - Make.
 - Git.
-- Internet access during image construction.
+- Internet access during image construction and application installation.
 
 The project is designed to run inside a virtual machine as required by the 42 Inception subject.
 
@@ -33,9 +35,12 @@ Inception/
 ├── README.md
 ├── USER_DOC.md
 ├── DEV_DOC.md
-├── docker-compose.yml
-├── .env
+├── sourcesRM/
+│   ├── 3_counterns.png
+│   ├── bonus_incepcion.png
+│   └── Incepcion1.png
 └── srcs/
+    ├── docker-compose.yml
     └── requirements/
         ├── mariadb/
         │   ├── Dockerfile
@@ -74,25 +79,32 @@ Inception/
                     └── index.html
 ```
 
+The local `.env` file is required for execution but is intentionally not included in the repository.
+
+It must be created locally at:
+
+```text
+srcs/.env
+```
+
 ---
 
 # Configuration
 
 ## Environment Variables
 
-The project uses a `.env` file to configure the infrastructure.
+The project uses a local `srcs/.env` file to configure the infrastructure.
 
 The file contains configuration values for:
 
 - Domain name.
 - MariaDB database.
-- MariaDB users.
-- MariaDB passwords.
+- MariaDB users and passwords.
 - WordPress administrator.
 - WordPress regular user.
 - FTP credentials.
 
-Example structure:
+The expected structure is:
 
 ```env
 DOMAIN_NAME=owmarqui.42.fr
@@ -116,11 +128,9 @@ FTP_PASSWORD=...
 
 The actual credentials must remain local.
 
-The `.env` file must be ignored by Git:
+The `.env` file must never be committed to Git.
 
-```gitignore
-.env
-```
+The repository `.gitignore` excludes environment files and other sensitive configuration files.
 
 ---
 
@@ -132,23 +142,31 @@ The WordPress domain is:
 owmarqui.42.fr
 ```
 
-The domain must resolve to the IP address of the local virtual machine.
+The domain must resolve to the IP address of the virtual machine.
 
-For local development, the host resolution can be configured through `/etc/hosts`.
+For local development, the host system can resolve the domain through `/etc/hosts`.
 
 Example:
 
 ```text
-192.168.x.x    owmarqui.42.fr
+192.168.56.101    owmarqui.42.fr
 ```
 
-The IP address must be replaced with the actual IP address used by the virtual machine.
+The IP address must be replaced if the virtual machine uses a different address.
+
+The project itself does not hard-code the VM host address in Docker Compose.
 
 ---
 
 # Docker Compose
 
-The `docker-compose.yml` file defines the complete infrastructure.
+The main Compose file is located at:
+
+```text
+srcs/docker-compose.yml
+```
+
+It defines the complete infrastructure.
 
 The mandatory services are:
 
@@ -163,7 +181,7 @@ The bonus services are:
 - `adminer`
 - `website`
 
-All services are connected to the `inception` Docker network.
+All services are connected to the dedicated Docker network.
 
 The services communicate using Docker service names instead of hard-coded container IP addresses.
 
@@ -173,45 +191,53 @@ For example, WordPress connects to MariaDB using:
 mariadb
 ```
 
-and NGINX connects to PHP-FPM using:
+NGINX connects to PHP-FPM using:
 
 ```text
 wordpress:9000
 ```
 
+WordPress connects to Redis using:
+
+```text
+redis:6379
+```
+
+The Compose configuration also defines persistent named volumes for MariaDB and WordPress.
+
 ---
 
 # Building the Project
 
-The complete infrastructure can be built with:
+The recommended way to build and start the complete infrastructure is:
 
 ```bash
 make
 ```
 
-The underlying Docker Compose command is:
+The equivalent Docker Compose command is:
 
 ```bash
-docker compose up --build -d
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml up --build -d
 ```
 
-To build without starting the containers:
+To build the images without starting the containers:
 
 ```bash
-docker compose build
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml build
 ```
 
 To force a complete rebuild without using Docker's build cache:
 
 ```bash
-docker compose build --no-cache
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml build --no-cache
 ```
 
 ---
 
 # Starting and Stopping
 
-Start the project:
+Start the complete project:
 
 ```bash
 make
@@ -226,13 +252,13 @@ make down
 Start the project directly with Docker Compose:
 
 ```bash
-docker compose up -d
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml up -d
 ```
 
 Stop the containers:
 
 ```bash
-docker compose down
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml down
 ```
 
 ---
@@ -241,39 +267,39 @@ docker compose down
 
 The Makefile provides shortcuts for managing the infrastructure.
 
-Typical commands are:
+The main commands are:
 
 ```bash
 make
 ```
 
-Build and start the project.
+Builds the images and starts the infrastructure.
 
 ```bash
 make down
 ```
 
-Stop and remove the containers.
+Stops and removes the containers while preserving persistent volumes.
 
 ```bash
 make clean
 ```
 
-Stop the infrastructure and remove the project's volumes.
+Performs the cleanup operation defined by the project's Makefile.
 
 ```bash
 make fclean
 ```
 
-Stop the infrastructure, remove volumes and remove the project's images.
+Performs the complete cleanup operation defined by the project's Makefile.
 
 ```bash
 make re
 ```
 
-Recreate the infrastructure from scratch.
+Rebuilds the infrastructure using the Makefile workflow.
 
-> `make clean`, `make fclean` and `make re` can remove persistent data. They should therefore not be used casually on an installation containing data that must be preserved.
+Before using destructive cleanup commands, inspect the Makefile and verify whether persistent data must be preserved.
 
 ---
 
@@ -294,7 +320,7 @@ docker ps -a
 Check the Compose services:
 
 ```bash
-docker compose ps
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps
 ```
 
 Inspect a container:
@@ -309,7 +335,7 @@ Open a shell inside a running container when required for debugging:
 docker exec -it <container> /bin/bash
 ```
 
-For minimal images where Bash is unavailable, use:
+For images where Bash is unavailable, use:
 
 ```bash
 docker exec -it <container> /bin/sh
@@ -322,21 +348,21 @@ docker exec -it <container> /bin/sh
 Display all service logs:
 
 ```bash
-docker compose logs
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
 ```
 
 Display logs for one service:
 
 ```bash
-docker compose logs nginx
-docker compose logs wordpress
-docker compose logs mariadb
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs wordpress
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs mariadb
 ```
 
 Follow logs continuously:
 
 ```bash
-docker compose logs -f
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs -f
 ```
 
 Logs are particularly useful when debugging:
@@ -353,7 +379,7 @@ Logs are particularly useful when debugging:
 
 # Docker Images
 
-List project images:
+List Docker images:
 
 ```bash
 docker images
@@ -367,17 +393,27 @@ docker image inspect <image>
 
 The project builds its own images from custom Dockerfiles rather than using pre-built application images.
 
-The base images are Debian images, with the required software installed during the Docker build.
+The base image used by the services is Debian Bookworm.
+
+The project uses explicit image tags such as:
+
+```text
+inception-nginx:1.0
+inception-wordpress:1.0
+inception-mariadb:1.0
+```
+
+This avoids relying on the `latest` tag.
 
 ---
 
 # Docker Volumes
 
-The project uses two main persistent named volumes:
+The project uses two persistent named volumes:
 
 ```text
-mariadb_data
-wordpress_data
+inception_mariadb_data
+inception_wordpress_data
 ```
 
 List volumes:
@@ -386,36 +422,47 @@ List volumes:
 docker volume ls
 ```
 
-Inspect a volume:
+Inspect the MariaDB volume:
 
 ```bash
-docker volume inspect mariadb_data
+docker volume inspect inception_mariadb_data
 ```
+
+Inspect the WordPress volume:
 
 ```bash
-docker volume inspect wordpress_data
+docker volume inspect inception_wordpress_data
 ```
 
-The persistent data must be stored under:
+The volumes use Docker's local driver with host directories under:
 
 ```text
 /home/owmarqui/data
 ```
 
-The MariaDB volume stores the database.
+The actual persistent directories are:
+
+```text
+/home/owmarqui/data/mariadb
+/home/owmarqui/data/wordpress
+```
+
+The MariaDB volume stores the database data.
 
 The WordPress volume stores the WordPress installation and website files.
 
-Because these are persistent volumes, recreating containers does not automatically remove their data.
+Because the data is stored outside the container lifecycle, recreating containers does not automatically remove the persistent data.
 
 ---
 
 # Docker Network
 
-The project uses a dedicated Docker network:
+The project uses a dedicated Docker bridge network.
+
+The actual Docker network created by the Compose project is:
 
 ```text
-inception
+inception_inception
 ```
 
 List Docker networks:
@@ -424,10 +471,10 @@ List Docker networks:
 docker network ls
 ```
 
-Inspect the network:
+Inspect the project network:
 
 ```bash
-docker network inspect inception
+docker network inspect inception_inception
 ```
 
 The network allows the containers to communicate internally.
@@ -439,12 +486,12 @@ NGINX
   |
   +--> wordpress:9000
            |
-           +--> mariadb
+           +--> mariadb:3306
            |
-           +--> redis
+           +--> redis:6379
 ```
 
-The project does not use host networking.
+The project does not use host networking or Docker links.
 
 ---
 
@@ -456,21 +503,48 @@ The NGINX configuration is located at:
 srcs/requirements/nginx/conf/nginx.conf
 ```
 
-The SSL certificate is generated during the image build.
+The NGINX Dockerfile is:
 
-The NGINX container exposes:
+```text
+srcs/requirements/nginx/Dockerfile
+```
+
+The SSL certificate and private key are generated during the Docker image build.
+
+They are not stored in the repository.
+
+The NGINX container listens on:
 
 ```text
 443
 ```
 
+The configuration enables:
+
+```text
+TLS 1.2
+TLS 1.3
+```
+
 The mandatory WordPress infrastructure is accessed through HTTPS.
+
+NGINX forwards PHP requests to:
+
+```text
+wordpress:9000
+```
 
 ---
 
 # WordPress Development
 
-The WordPress configuration script is located at:
+The WordPress Dockerfile is located at:
+
+```text
+srcs/requirements/wordpress/Dockerfile
+```
+
+The WordPress configuration script is:
 
 ```text
 srcs/requirements/wordpress/conf/wp_setup.sh
@@ -479,12 +553,14 @@ srcs/requirements/wordpress/conf/wp_setup.sh
 The script is responsible for:
 
 1. Waiting for MariaDB to become available.
-2. Downloading WP-CLI if necessary.
+2. Installing WP-CLI if necessary.
 3. Downloading WordPress.
 4. Creating the WordPress configuration.
 5. Installing WordPress.
 6. Creating the regular WordPress user.
-7. Starting PHP-FPM in the foreground.
+7. Installing and activating the Redis Object Cache plugin.
+8. Configuring Redis.
+9. Starting PHP-FPM in the foreground.
 
 PHP-FPM listens internally on:
 
@@ -492,19 +568,39 @@ PHP-FPM listens internally on:
 9000
 ```
 
+WordPress does not run NGINX inside its own container.
+
 ---
 
 # MariaDB Development
 
-The MariaDB initialization script is located at:
+The MariaDB Dockerfile is:
+
+```text
+srcs/requirements/mariadb/Dockerfile
+```
+
+The initialization script is:
 
 ```text
 srcs/requirements/mariadb/conf/init.sh
 ```
 
-It initializes the database and configures the required database users.
+The script:
 
-MariaDB is only accessible internally through the Docker network.
+1. Configures MariaDB to accept connections through the Docker network.
+2. Initializes the database on the first run.
+3. Creates the required database and user.
+4. Configures the root password.
+5. Starts MariaDB as the main container process.
+
+MariaDB listens internally on:
+
+```text
+3306
+```
+
+Port `3306` is not published to the host.
 
 Its persistent data is stored in the MariaDB named volume.
 
@@ -514,23 +610,37 @@ Its persistent data is stored in the MariaDB named volume.
 
 ## Redis
 
-Redis provides caching functionality for the WordPress installation.
+Redis provides object caching for WordPress.
 
-Its Dockerfile is located at:
+Its Dockerfile is:
 
 ```text
 srcs/requirements/bonus/redis/Dockerfile
 ```
 
+Redis listens internally on:
+
+```text
+6379
+```
+
+WordPress communicates with Redis using the Docker service name:
+
+```text
+redis
+```
+
+---
+
 ## FTP
 
-The FTP server uses:
+The FTP Dockerfile is:
 
 ```text
 srcs/requirements/bonus/ftp/Dockerfile
 ```
 
-Its configuration is located at:
+Its configuration is:
 
 ```text
 srcs/requirements/bonus/ftp/conf/vsftpd.conf
@@ -542,17 +652,42 @@ The startup script is:
 srcs/requirements/bonus/ftp/tools/ftp_setup.sh
 ```
 
-The FTP service shares the WordPress website volume.
+FTP uses the WordPress persistent volume so that transferred files are available to the WordPress installation.
+
+The exposed ports are:
+
+```text
+21
+21000-21010
+```
+
+---
 
 ## Adminer
 
 Adminer provides a web interface for managing the MariaDB database.
 
-Its Dockerfile is located at:
+Its Dockerfile is:
 
 ```text
 srcs/requirements/bonus/adminer/Dockerfile
 ```
+
+Adminer listens on port `8080` inside its container.
+
+Docker publishes it on host port:
+
+```text
+8082
+```
+
+Therefore it is accessed from the host through:
+
+```text
+http://localhost:8082
+```
+
+---
 
 ## Static Website
 
@@ -562,7 +697,31 @@ The additional static website is located under:
 srcs/requirements/bonus/website/
 ```
 
-It is served by its own NGINX container.
+Its Dockerfile is:
+
+```text
+srcs/requirements/bonus/website/Dockerfile
+```
+
+The NGINX configuration is:
+
+```text
+srcs/requirements/bonus/website/conf/nginx.conf
+```
+
+The website content is:
+
+```text
+srcs/requirements/bonus/website/site/index.html
+```
+
+The static website is published on host port:
+
+```text
+8081
+```
+
+It does not use PHP or WordPress.
 
 ---
 
@@ -570,7 +729,19 @@ It is served by its own NGINX container.
 
 The project separates application containers from persistent data.
 
-Containers can be stopped or recreated without intentionally deleting the WordPress files or MariaDB database.
+The two main persistent volumes are:
+
+```text
+inception_mariadb_data
+inception_wordpress_data
+```
+
+The corresponding host directories are:
+
+```text
+/home/owmarqui/data/mariadb
+/home/owmarqui/data/wordpress
+```
 
 The important distinction is:
 
@@ -580,15 +751,17 @@ Container lifecycle
 Persistent data lifecycle
 ```
 
-Removing a container does not necessarily remove its named volumes.
+Removing or recreating a container does not automatically remove its named volumes.
 
-However, commands such as:
+However, commands that explicitly remove volumes can permanently delete persistent application data.
+
+For example:
 
 ```bash
-docker compose down -v
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml down -v
 ```
 
-explicitly remove the project's volumes and can result in permanent data loss.
+should only be used when the persistent data is intentionally being removed.
 
 ---
 
@@ -597,19 +770,19 @@ explicitly remove the project's volumes and can result in permanent data loss.
 ## Check the complete infrastructure
 
 ```bash
-docker compose ps
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps
 ```
 
 ## Check all logs
 
 ```bash
-docker compose logs
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
 ```
 
 ## Check the Docker network
 
 ```bash
-docker network inspect inception
+docker network inspect inception_inception
 ```
 
 ## Check persistent volumes
@@ -623,13 +796,13 @@ docker volume ls
 For example:
 
 ```bash
-docker compose build nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml build nginx
 ```
 
 Then recreate it:
 
 ```bash
-docker compose up -d nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml up -d nginx
 ```
 
 ## Check container processes
@@ -638,7 +811,7 @@ docker compose up -d nginx
 docker top <container>
 ```
 
-This can be useful to verify that the expected main process is running as PID 1 inside the container.
+This can be useful to verify that the expected main process is running inside the container.
 
 ---
 
@@ -656,9 +829,9 @@ A typical development workflow is:
 For example:
 
 ```bash
-docker compose build nginx
-docker compose up -d nginx
-docker compose logs nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml build nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml up -d nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs nginx
 ```
 
 Before committing changes:
@@ -667,13 +840,13 @@ Before committing changes:
 git status
 ```
 
-Check that sensitive files such as `.env` are not included in the commit.
-
-Then review the changes:
+Review the modifications:
 
 ```bash
 git diff
 ```
+
+Verify that sensitive files such as `srcs/.env` are not included in the commit.
 
 ---
 
@@ -691,9 +864,9 @@ make fclean
 make re
 ```
 
-may remove persistent project data.
+may remove persistent project data depending on the Makefile operation.
 
-Always verify the current state of the volumes before deleting them.
+Always verify the current state of the containers and volumes before deleting them.
 
 ---
 
@@ -703,10 +876,10 @@ When modifying the infrastructure, each service should remain responsible for a 
 
 Examples:
 
-- NGINX handles HTTPS and HTTP requests.
+- NGINX handles HTTPS and forwards PHP requests.
 - WordPress handles PHP and the WordPress application.
 - MariaDB handles database storage.
-- Redis handles caching.
+- Redis handles WordPress object caching.
 - FTP handles file transfer.
 - Adminer handles database administration.
 - The static website serves independent static content.

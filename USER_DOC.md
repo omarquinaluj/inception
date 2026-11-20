@@ -6,6 +6,8 @@ This document explains how to use the Inception infrastructure as an end user or
 
 The project provides a WordPress website running through a Docker-based infrastructure composed of several independent services.
 
+The mandatory WordPress infrastructure is accessed through NGINX using HTTPS on port `443`.
+
 ---
 
 # Services
@@ -17,32 +19,47 @@ The infrastructure provides the following services:
 | NGINX | HTTPS reverse proxy and web entry point | `https://owmarqui.42.fr` |
 | WordPress | Website and PHP application | `https://owmarqui.42.fr` |
 | MariaDB | WordPress database | Internal |
-| Redis | WordPress cache | Internal |
+| Redis | WordPress object cache | Internal |
 | FTP | Access to WordPress files | Port `21` |
-| Adminer | Database management interface | Port `8080` |
+| Adminer | Database management interface | Port `8082` |
 | Static Website | Additional static website | Port `8081` |
 
-The mandatory WordPress infrastructure is accessed through NGINX on port `443`.
+Additional ports used by the bonus services are:
+
+- FTP control: `21`
+- FTP passive mode: `21000-21010`
+- Adminer: `8082`
+- Static website: `8081`
+
+MariaDB and PHP-FPM are not exposed directly to the host.
 
 ---
 
 # Starting the Project
 
-From the project root, run:
+The recommended way to start the infrastructure is from the project root:
 
 ```bash
 make
 ```
 
-This builds the Docker images and starts the infrastructure in detached mode.
+The Makefile builds the Docker images and starts the infrastructure in detached mode.
 
 To verify that the services are running:
 
 ```bash
-docker compose ps
+make ps
+```
+
+or:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps
 ```
 
 All required containers should be in a running state.
+
+The project requires a local `srcs/.env` file containing the configuration values used by MariaDB, WordPress and FTP.
 
 ---
 
@@ -56,7 +73,9 @@ make down
 
 This stops and removes the containers while keeping the persistent Docker volumes.
 
-The persistent data should therefore remain available when the infrastructure is started again.
+The persistent data therefore remains available when the infrastructure is started again.
+
+To remove the containers and persistent volumes, use the appropriate cleanup command from the Makefile only when the data is no longer required.
 
 ---
 
@@ -78,35 +97,39 @@ https://owmarqui.42.fr/wp-admin
 
 Use the administrator account configured during the installation.
 
+The WordPress administrator username does not need to be the same as the Linux or GitHub username.
+
 ---
 
 # Accessing Adminer
 
-Adminer is available at:
+Adminer is available from the host at:
 
 ```text
-http://localhost:8080
+http://localhost:8082
 ```
 
-The database server should be specified as:
+The Adminer container itself listens on port `8080`; Docker maps that container port to host port `8082`.
+
+When connecting to the WordPress database, use:
 
 ```text
-mariadb
+Server: mariadb
 ```
 
-The database name, username and password are the values configured in the local `.env` file.
+The database name, username and password are the values configured in the local `srcs/.env` file.
 
 ---
 
 # Accessing the Bonus Website
 
-The additional static website is available at:
+The additional static website is available from the host at:
 
 ```text
 http://localhost:8081
 ```
 
-This website is independent from the WordPress installation.
+This website is independent from the WordPress installation and is served by its own NGINX container.
 
 ---
 
@@ -124,15 +147,15 @@ Passive FTP ports:
 21000-21010
 ```
 
-The FTP username and password are stored in the local `.env` file.
+The FTP username and password are stored in the local `srcs/.env` file.
 
-The FTP service points to the WordPress website files, so files uploaded or modified through FTP affect the WordPress website volume.
+The FTP service uses the same WordPress data volume as the WordPress container. Therefore, files uploaded or modified through FTP affect the files used by the WordPress website.
 
 ---
 
 # Credentials
 
-Sensitive credentials are stored locally in the `.env` configuration file.
+Sensitive credentials are stored locally in the `srcs/.env` configuration file.
 
 The `.env` file contains values such as:
 
@@ -141,12 +164,22 @@ The `.env` file contains values such as:
 - WordPress user credentials;
 - FTP credentials.
 
-The `.env` file must **not be committed to Git**.
+The `.env` file must **not be committed to Git** or shared publicly.
+
+The repository does not contain the real `.env` file.
+
+Before starting the project on a new installation, create the required file:
+
+```text
+srcs/.env
+```
+
+and configure the required environment variables according to the Docker Compose configuration.
 
 To inspect the local configuration:
 
 ```bash
-cat .env
+cat srcs/.env
 ```
 
 Do not share or publish the contents of this file because it contains passwords.
@@ -158,27 +191,33 @@ Do not share or publish the contents of this file because it contains passwords.
 To see the state of all services:
 
 ```bash
-docker compose ps
+make ps
+```
+
+Alternatively:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps
 ```
 
 To inspect the logs:
 
 ```bash
-docker compose logs
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
 ```
 
 To inspect a specific service:
 
 ```bash
-docker compose logs nginx
-docker compose logs wordpress
-docker compose logs mariadb
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs wordpress
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs mariadb
 ```
 
 To continuously follow the logs:
 
 ```bash
-docker compose logs -f
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs -f
 ```
 
 ---
@@ -187,54 +226,68 @@ docker compose logs -f
 
 The project uses Docker named volumes for persistent data.
 
-List the project's volumes:
+List the project's Docker volumes:
 
 ```bash
 docker volume ls
 ```
 
-Inspect a volume:
+The project creates the following volumes:
 
-```bash
-docker volume inspect mariadb_data
+```text
+inception_mariadb_data
+inception_wordpress_data
 ```
 
-or:
+Inspect the MariaDB volume:
 
 ```bash
-docker volume inspect wordpress_data
+docker volume inspect inception_mariadb_data
 ```
 
-The persistent data is stored under the required host directory:
+Inspect the WordPress volume:
+
+```bash
+docker volume inspect inception_wordpress_data
+```
+
+The volumes use the local Docker driver with host directories under:
 
 ```text
 /home/owmarqui/data
 ```
 
-The MariaDB volume contains the database data, while the WordPress volume contains the website files.
+The actual persistent data directories are:
+
+```text
+/home/owmarqui/data/mariadb
+/home/owmarqui/data/wordpress
+```
+
+The MariaDB directory contains the database data, while the WordPress directory contains the website files.
 
 ---
 
 # Restarting the Infrastructure
 
-If the containers stop unexpectedly, check their state:
+If the containers stop unexpectedly, first check their state:
 
 ```bash
-docker compose ps
+make ps
 ```
 
 Then inspect the logs:
 
 ```bash
-docker compose logs
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
 ```
 
-The containers are configured to restart after a crash according to the Docker Compose configuration.
+The containers are configured with Docker Compose restart policies so that they can automatically restart after a failure.
 
 If necessary, the infrastructure can be restarted with:
 
 ```bash
-docker compose restart
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml restart
 ```
 
 ---
@@ -246,14 +299,14 @@ docker compose restart
 Check the containers:
 
 ```bash
-docker compose ps
+make ps
 ```
 
 Then check NGINX and WordPress logs:
 
 ```bash
-docker compose logs nginx
-docker compose logs wordpress
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs wordpress
 ```
 
 Check that the domain resolves correctly:
@@ -262,6 +315,10 @@ Check that the domain resolves correctly:
 getent hosts owmarqui.42.fr
 ```
 
+The domain should resolve to the IP address configured for the Inception virtual machine.
+
+Also verify that NGINX is listening on port `443`.
+
 ---
 
 ## MariaDB is not working
@@ -269,13 +326,13 @@ getent hosts owmarqui.42.fr
 Check the MariaDB container:
 
 ```bash
-docker compose ps mariadb
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps mariadb
 ```
 
 Then inspect its logs:
 
 ```bash
-docker compose logs mariadb
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs mariadb
 ```
 
 Do not remove the MariaDB volume unless you intentionally want to delete the persistent database.
@@ -284,17 +341,68 @@ Do not remove the MariaDB volume unless you intentionally want to delete the per
 
 ## NGINX is not working
 
-Check:
+Check the NGINX logs:
 
 ```bash
-docker compose logs nginx
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs nginx
 ```
 
-Verify that port `443` is available and that the SSL configuration is correct.
+Verify that port `443` is available:
+
+```bash
+ss -lntp | grep ':443'
+```
+
+The NGINX configuration uses HTTPS with TLS 1.2 and TLS 1.3.
 
 ---
 
-## Checking Docker Resources
+## Adminer is not accessible
+
+Check the Adminer container:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps adminer
+```
+
+Then inspect its logs:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs adminer
+```
+
+Adminer should be accessible from the host at:
+
+```text
+http://localhost:8082
+```
+
+---
+
+## FTP is not accessible
+
+Check the FTP container:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps ftp
+```
+
+Then inspect its logs:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs ftp
+```
+
+Verify that the FTP control port and passive port range are available:
+
+```text
+21
+21000-21010
+```
+
+---
+
+# Checking Docker Resources
 
 To see running containers:
 
@@ -302,22 +410,28 @@ To see running containers:
 docker ps
 ```
 
-To see images:
+To see Docker images:
 
 ```bash
 docker images
 ```
 
-To see volumes:
+To see Docker volumes:
 
 ```bash
 docker volume ls
 ```
 
-To see networks:
+To see Docker networks:
 
 ```bash
 docker network ls
+```
+
+The project Docker network is:
+
+```text
+inception_inception
 ```
 
 ---
@@ -326,7 +440,7 @@ docker network ls
 
 Commands that remove Docker volumes can permanently delete persistent application data.
 
-In particular, avoid using commands such as:
+In particular, avoid using:
 
 ```bash
 docker compose down -v
@@ -334,4 +448,6 @@ docker compose down -v
 
 unless you intentionally want to remove the project's persistent volumes.
 
-The Makefile also contains commands that can remove volumes and images. Use them carefully.
+The Makefile also contains commands that can remove volumes and images. Use those commands carefully and only when you understand the consequences.
+
+The WordPress and MariaDB data are stored persistently outside the containers, so removing a container does not by itself remove the persistent application data.
