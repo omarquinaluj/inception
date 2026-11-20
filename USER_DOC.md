@@ -132,12 +132,17 @@ http://localhost:8081
 This website is independent from the WordPress installation and is served by its own NGINX container.
 
 ---
+## FTP
 
-# FTP Access
+The project includes an FTP service using `vsftpd`.  
+The FTP service shares the same `wordpress_data` volume as the WordPress and Nginx containers.
 
-The FTP service listens on:
+### FTP connection
+
+The FTP server is available on:
 
 ```text
+Host: owmarqui.42.fr
 Port: 21
 ```
 
@@ -147,9 +152,154 @@ Passive FTP ports:
 21000-21010
 ```
 
-The FTP username and password are stored in the local `srcs/.env` file.
+The FTP username and password are the same credentials configured for the WordPress environment.
 
-The FTP service uses the same WordPress data volume as the WordPress container. Therefore, files uploaded or modified through FTP affect the files used by the WordPress website.
+### Check that the FTP container is running
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps ftp
+```
+
+Expected result:
+
+```text
+inception-ftp-1   ...   Up
+```
+
+You can also check the published ports:
+
+```bash
+docker port inception-ftp-1
+```
+
+Expected ports include:
+
+```text
+21/tcp
+21000-21010/tcp
+```
+
+### Test FTP from the terminal
+
+Install the FTP client if necessary:
+
+```bash
+sudo apt-get install ftp
+```
+
+Connect to the FTP server:
+
+```bash
+ftp owmarqui.42.fr
+```
+
+Then enter the FTP credentials configured in `srcs/.env`.
+
+Once connected, test:
+
+```text
+pwd
+ls
+```
+
+You should see the WordPress files, because FTP uses the same `/var/www/html` directory as the WordPress installation.
+
+To leave the FTP session:
+
+```text
+bye
+```
+
+### Test FTP with a file
+
+You can also verify that FTP can access the WordPress files:
+
+```bash
+ftp owmarqui.42.fr
+```
+
+Inside the FTP session:
+
+```text
+ls
+get index.php
+bye
+```
+
+The `get` command downloads a file from the FTP server to the current directory.
+
+### Verify that FTP shares the WordPress volume
+
+Check the mounts of the FTP container:
+
+```bash
+docker inspect inception-ftp-1 --format '{{json .Mounts}}'
+```
+
+The output should show the `wordpress_data` volume mounted at:
+
+```text
+/var/www/html
+```
+
+You can compare it with the WordPress container:
+
+```bash
+docker inspect inception-wordpress-1 --format '{{json .Mounts}}'
+```
+
+Both containers should use the same `wordpress_data` volume.
+
+### What this demonstrates
+
+The FTP service allows access to the WordPress files through FTP.
+
+The important point is that FTP, WordPress and Nginx share the same persistent WordPress volume:
+
+```text
+                    wordpress_data
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+          WordPress     Nginx       FTP
+          /var/www/html /var/www/html /var/www/html
+```
+
+Therefore, files uploaded or modified through FTP are available to the other services using the same volume.
+
+### Troubleshooting
+
+If FTP does not connect, check:
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs ftp
+```
+
+Check that port 21 is listening:
+
+```bash
+sudo ss -lntp | grep ':21'
+```
+
+Check the FTP container:
+
+```bash
+docker ps --filter name=inception-ftp
+```
+
+Check the passive ports:
+
+```bash
+docker port inception-ftp-1
+```
+
+If the FTP container is running but authentication fails, verify the FTP credentials in:
+
+```bash
+grep '^FTP_' srcs/.env
+```
+
+Do not display or share the password during the defense.
 
 ---
 
@@ -222,21 +372,38 @@ docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
 
 ---
 
-# Checking Persistent Data
+## Persistent Data
 
-The project uses Docker named volumes for persistent data.
+The project uses Docker named volumes to keep important application data outside the containers.
+
+This means that removing and recreating a container does not remove the WordPress website or the MariaDB database, as long as the persistent volumes are kept.
+
+### Persistent Volumes
+
+The project uses two named Docker volumes:
+
+```bash
+inception_mariadb_data
+inception_wordpress_data
+```
+
+The volumes are backed by directories on the host:
+
+```text
+/home/owmarqui/data/mariadb
+/home/owmarqui/data/wordpress
+```
+
+The MariaDB volume contains the database files.
+
+The WordPress volume contains the WordPress installation, plugins, themes, uploads and other website files.
+
+### Check the Volumes
 
 List the project's Docker volumes:
 
 ```bash
 docker volume ls
-```
-
-The project creates the following volumes:
-
-```text
-inception_mariadb_data
-inception_wordpress_data
 ```
 
 Inspect the MariaDB volume:
@@ -251,45 +418,201 @@ Inspect the WordPress volume:
 docker volume inspect inception_wordpress_data
 ```
 
-The volumes use the local Docker driver with host directories under:
+The `Mountpoint` shown by Docker refers to the Docker volume. In this project, the volume uses a bind mount to the host directories under:
 
 ```text
 /home/owmarqui/data
 ```
 
-The actual persistent data directories are:
+The actual persistent directories can also be inspected directly:
 
-```text
-/home/owmarqui/data/mariadb
-/home/owmarqui/data/wordpress
+```bash
+ls -lah /home/owmarqui/data/mariadb
+ls -lah /home/owmarqui/data/wordpress
 ```
 
-The MariaDB directory contains the database data, while the WordPress directory contains the website files.
+### Persistence After Stopping the Project
 
----
+The normal command to stop the infrastructure is:
 
-# Restarting the Infrastructure
+```bash
+make down
+```
 
-If the containers stop unexpectedly, first check their state:
+This removes the containers but **keeps the persistent volumes**.
+
+The data therefore remains available.
+
+Start the infrastructure again with:
+
+```bash
+make
+```
+
+The same WordPress installation and MariaDB database should be available again.
+
+### Persistence Demonstration
+
+A simple way to demonstrate persistence is:
+
+1. Start the project:
+
+```bash
+make
+```
+
+2. Check that all services are running:
 
 ```bash
 make ps
 ```
 
-Then inspect the logs:
+3. Open WordPress:
 
-```bash
-docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml logs
+```text
+https://owmarqui.42.fr
 ```
 
-The containers are configured with Docker Compose restart policies so that they can automatically restart after a failure.
+4. Create or modify some persistent WordPress data, such as a post or another website setting.
 
-If necessary, the infrastructure can be restarted with:
+5. Stop the infrastructure:
 
 ```bash
-docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml restart
+make down
 ```
 
+6. Confirm that the containers have been removed:
+
+```bash
+docker ps
+```
+
+7. Start the infrastructure again:
+
+```bash
+make
+```
+
+8. Check the services:
+
+```bash
+make ps
+```
+
+9. Open WordPress again:
+
+```text
+https://owmarqui.42.fr
+```
+
+The previously created data should still be present.
+
+This demonstrates that the application data is stored in persistent volumes rather than inside the containers themselves.
+
+### Container vs Persistent Data
+
+Containers are replaceable application environments.
+
+The persistent data is stored separately:
+
+```text
+MariaDB container
+       |
+       v
+inception_mariadb_data
+       |
+       v
+/home/owmarqui/data/mariadb
+```
+
+and:
+
+```text
+WordPress container
+       |
+       v
+inception_wordpress_data
+       |
+       v
+/home/owmarqui/data/wordpress
+```
+
+Therefore:
+
+```text
+Container removed     -> data remains
+Container recreated   -> data remains
+make down             -> data remains
+make down -v          -> data is removed
+```
+
+### Commands That Preserve Data
+
+The following command removes the containers but keeps the persistent volumes:
+
+```bash
+make down
+```
+
+Starting the project again:
+
+```bash
+make
+```
+
+The WordPress files and MariaDB database should still be available.
+
+### Commands That Remove Persistent Data
+
+Be careful with commands that use `-v`.
+
+For example:
+
+```bash
+make clean
+```
+
+uses:
+
+```bash
+docker compose down -v
+```
+
+and therefore removes the project's Docker volumes.
+
+The `fclean` target also removes the volumes and Docker images:
+
+```bash
+make fclean
+```
+
+Therefore, these commands should only be used when the persistent application data is no longer required.
+
+### Important Persistence Warning
+
+Do not use:
+
+```bash
+docker compose down -v
+```
+
+or:
+
+```bash
+make clean
+```
+
+or:
+
+```bash
+make fclean
+```
+
+if you want to preserve the current WordPress and MariaDB data.
+
+Removing the volumes can permanently delete the persistent application data.
+
+The persistent data should be backed up before intentionally removing the volumes.
 ---
 
 # Troubleshooting
