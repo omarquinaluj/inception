@@ -1,8 +1,9 @@
 services:
 
   mariadb:
-    container_name: mariadb
-    build: ./srcs/requirements/mariadb
+    build: ./requirements/mariadb
+    image: inception-mariadb:1.0
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
@@ -11,8 +12,9 @@ services:
       - inception
 
   wordpress:
-    container_name: wordpress
-    build: ./srcs/requirements/wordpress
+    build: ./requirements/wordpress
+    image: inception-wordpress:1.0
+    restart: unless-stopped
     env_file:
       - .env
     depends_on:
@@ -23,8 +25,9 @@ services:
       - inception
 
   nginx:
-    container_name: nginx
-    build: ./srcs/requirements/nginx
+    build: ./requirements/nginx
+    image: inception-nginx:1.0
+    restart: unless-stopped
     depends_on:
       - wordpress
     ports:
@@ -35,29 +38,34 @@ services:
       - inception
 
   redis:
-    container_name: redis
-    build: ./srcs/requirements/bonus/redis
+    build: ./requirements/bonus/redis
+    image: inception-redis:1.0
+    restart: unless-stopped
     networks:
       - inception
 
   adminer:
-    container_name: adminer
-    build: ./srcs/requirements/bonus/adminer
+    build: ./requirements/bonus/adminer
+    image: inception-adminer:1.0
+    restart: unless-stopped
     ports:
       - "8082:8080"
     networks:
       - inception
+
   website:
-    container_name: website
-    build: ./srcs/requirements/bonus/website
+    build: ./requirements/bonus/website
+    image: inception-website:1.0
+    restart: unless-stopped
     ports:
       - "8081:8081"
     networks:
       - inception
 
   ftp:
-    container_name: ftp
-    build: ./srcs/requirements/bonus/ftp
+    build: ./requirements/bonus/ftp
+    image: inception-ftp:1.0
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
@@ -70,7 +78,18 @@ services:
 
 volumes:
   mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/owmarqui/data/mariadb
+
   wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/owmarqui/data/wordpress
 
 networks:
   inception:

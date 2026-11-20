@@ -1,18 +1,18 @@
 FROM debian:bookworm
 
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y \
-    php-fpm \
-    php-mysql \
-    mariadb-client \
-    curl \
-    wget && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+	apt-get install -y \
+	php-fpm \
+	php-mysql \
+	mariadb-client \
+	curl \
+	wget && \
+	rm -rf /var/lib/apt/lists/*
 
-# Hacer que escuche por puerto 9000
+# Configure PHP-FPM to listen on port 9000
 RUN sed -i 's|listen = .*|listen = 9000|' /etc/php/8.2/fpm/pool.d/www.conf
 
-# Crear carpeta runtime necesaria
+# Create the required PHP runtime directory
 RUN mkdir -p /run/php
 
 RUN mkdir -p /var/www/html

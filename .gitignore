@@ -1,0 +1,11 @@
+#Secret / enviroment
+
+.env
+.env.*
+!.env.example
+
+#TLS cerificates and private keys
+
+*.key
+*.pem
+*.crt

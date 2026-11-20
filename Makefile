@@ -1,18 +1,20 @@
 NAME = inception
 
+COMPOSE = docker compose -p $(NAME) --env-file srcs/.env -f srcs/docker-compose.yml
+
 all: up
 
 up:
-	docker compose -f docker-compose.yml up --build -d
+	$(COMPOSE) up --build -d
 
 down:
-	docker compose -f docker-compose.yml down
+	$(COMPOSE) down
 
 clean:
-	docker compose -f docker-compose.yml down -v
+	$(COMPOSE) down -v
 
 fclean:
-	docker compose -f docker-compose.yml down -v --rmi all
+	$(COMPOSE) down -v --rmi all
 
 re: fclean up
 
