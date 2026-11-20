@@ -313,6 +313,33 @@ Do not display or share the password during the defense.
 
 ---
 
+### Redi test
+
+```bash
+docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps redis
+```
+
+```bash
+docker ps --filter name=inception-redis
+```
+
+* In redi
+```bash
+docker exec -it inception-redis-1 bash
+```
+
+```bash
+redis-cli ping
+```
+You must respond
+```test
+PONG
+```
+if finish it
+```bash
+exit
+```
+
 # Credentials
 
 Sensitive credentials are stored locally in the `srcs/.env` configuration file.
