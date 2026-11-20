@@ -626,10 +626,6 @@ They were used mainly for:
 - understanding NGINX, PHP-FPM and MariaDB configuration;
 - reviewing shell scripts and Dockerfiles;
 - explaining errors encountered during development;
-- organizing project documentation;
-- reviewing project requirements and identifying missing mandatory elements.
-
-AI-generated suggestions were reviewed, tested and adapted to the project's actual implementation.
 
 The final configuration was tested against the project's requirements and validated through practical execution.
 
