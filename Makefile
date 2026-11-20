@@ -7,6 +7,9 @@ all: up
 up:
 	$(COMPOSE) up --build -d
 
+ps:
+	$(COMPOSE) ps
+
 down:
 	$(COMPOSE) down
 

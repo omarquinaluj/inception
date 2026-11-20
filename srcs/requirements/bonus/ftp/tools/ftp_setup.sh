@@ -8,4 +8,6 @@ echo "$FTP_USER:$FTP_PASSWORD" | chpasswd
 
 chown -R "$FTP_USER:$FTP_USER" /var/www/html
 
+sed -i '/pam_shells.so/d' /etc/pam.d/vsftpd
+
 exec /usr/sbin/vsftpd /etc/vsftpd.conf
