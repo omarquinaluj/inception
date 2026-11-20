@@ -155,29 +155,39 @@ Passive FTP ports:
 The FTP username and password are the same credentials configured for the WordPress environment.
 
 ### Check that the FTP container is running
-
 ```bash
 docker compose -p inception --env-file srcs/.env -f srcs/docker-compose.yml ps ftp
 ```
 
-Expected result:
-
-```text
-inception-ftp-1   ...   Up
-```
+The container should be shown as running.
 
 You can also check the published ports:
-
 ```bash
 docker port inception-ftp-1
 ```
-
 Expected ports include:
 
-```text
 21/tcp
 21000-21010/tcp
+
+Test FTP connection
+
+Connect from the host:
+```bash
+ftp owmarqui.42.fr
 ```
+Enter the FTP credentials configured in srcs/.env.
+
+After a successful login:
+
+ftp> pwd
+ftp> ls
+
+The WordPress files should be accessible.
+
+To leave the FTP session:
+
+ftp> bye
 
 ### Test FTP from the terminal
 
